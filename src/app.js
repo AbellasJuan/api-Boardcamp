@@ -1,6 +1,7 @@
 import express from "express";
 import cors from 'cors';
 import pg from 'pg';
+import joi from 'joi';
 
 const app = express();
 
@@ -50,6 +51,52 @@ app.post('/categories', async (req, resp) => {
     resp.sendStatus(201);
     //envia status 201 se criou e deu bom;
 });
+
+//GET  GAMES
+app.get('/games' , async (req, resp) => {
+    const { name } = req.query;
+
+    let result;
+
+    if(name){
+        console.log('entrou')
+        result = await connection.query(`SELECT * FROM games WHERE name ILIKE $1`, [`${name}%`]);
+    } else{
+        result = await connection.query(`SELECT * FROM games`);
+    }
+
+    resp.send(result.rows);
+});
+
+//POST GAMES
+app.post('/games' , async (req, resp) =>{
+    const {name, image, stockTotal, categoryId, pricePerDay} = req.body;
+
+    const schemaGames = joi.object({
+    name: joi.string().min(1).required(),
+    stockTotal: joi.number().min(1).integer(),
+    pricePerDay: joi.number().min(1),
+    categoryId: joi.number().required(),
+    }).unknown();
+    //UNKNOWN() PQ TAVA MANDANDO EU COLOCAR IMAGE. ASSIM ELE NAO PEDE PRA COLOCAR JOI PRA TODAS AS PROPRIEDADES.
+
+    if(schemaGames.validate(req.body).error){
+        console.log(schemaGames.validate(req.body).error)
+        return resp.sendStatus(400);
+    }
+
+    const allGamesName = await connection.query(`SELECT * FROM games`);
+    
+    if(allGamesName.rows.some(game => game.name === name)){
+        return resp.sendStatus(409);
+    }
+
+    await connection.query(`INSERT INTO games (name, image, "stockTotal", "categoryId", "pricePerDay") VALUES ($1, $2, $3, $4, $5)`, [name, image, stockTotal, categoryId, pricePerDay]);
+
+    resp.sendStatus(201);
+});
+
+
 
 app.listen(4000 , () => {
     console.log("Server ON");
