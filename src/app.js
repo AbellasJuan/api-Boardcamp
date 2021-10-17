@@ -20,17 +20,24 @@ database: 'boardcamp'
 
 //GET CATEGORIES
 app.get("/categories", async (req, resp) => {
+    try{
     const result = await connection.query(`SELECT * FROM categories`);
     //coloquei dentro da const result o 'await' para travar ate ele responder e fiz o connection.query para conectar com o banco de dados o pedido de selecionar todas as categories;
     resp.send(result.rows);
     //a resposta que me é enviada sao todas as fileiras da minha requisiçao;
+    }
+
+    catch(error) {
+        console.log(error);
+        resp.sendStatus(500);
+    }
 });
 
 //POST CATEGORIES
 app.post('/categories', async (req, resp) => {
     const name = req.body.name;
     //aqui eu peguei o que tinha dentro do body. Só tinha o 'name';
-
+    try {
     if(!name){
         //se !name retornar true quer dizer que nao foi enviado nada e dá erro;
         return resp.sendStatus(400);
@@ -44,12 +51,18 @@ app.post('/categories', async (req, resp) => {
         return resp.sendStatus(409);
         //se tiver aquele nome vai me retornar status 409;;
     }
-
+    
     await connection.query(`INSERT INTO categories (name) VALUES ($1)`, [name]);
     //await pra só continuar quando isso for resolvido.
     //aqui falei pro meu banco de dados que eu quero inserir em categories no campo NAME (pq id tá automatico) e o valor que eu quero botar ('$1' dizendo que vai entrar algo ali, para evitar o sql injection) e depois passamos realmente o valor do $1, [name];
     resp.sendStatus(201);
     //envia status 201 se criou e deu bom;
+    }
+
+    catch(error) {
+        console.log(error);
+        resp.sendStatus(500);
+    }
 });
 
 //GET  GAMES
@@ -58,14 +71,20 @@ app.get('/games' , async (req, resp) => {
 
     let result;
 
+    try{
     if(name){
-        console.log('entrou')
         result = await connection.query(`SELECT * FROM games WHERE name ILIKE $1`, [`${name}%`]);
     } else{
         result = await connection.query(`SELECT * FROM games`);
     }
-
+    
     resp.send(result.rows);
+    }
+
+    catch(error) {
+        console.log(error);
+        resp.sendStatus(500);
+    }
 });
 
 //POST GAMES
@@ -74,12 +93,13 @@ app.post('/games' , async (req, resp) =>{
 
     const schemaGames = joi.object({
     name: joi.string().min(1).required(),
+    image: joi.string().pattern(/(http(s?):)([/|.|\w|\s|-])*.(?:jpg|gif|png)/).required(),
     stockTotal: joi.number().min(1).integer(),
     pricePerDay: joi.number().min(1),
     categoryId: joi.number().required(),
     }).unknown();
     //UNKNOWN() PQ TAVA MANDANDO EU COLOCAR IMAGE. ASSIM ELE NAO PEDE PRA COLOCAR JOI PRA TODAS AS PROPRIEDADES.
-
+    try {
     if(schemaGames.validate(req.body).error){
         console.log(schemaGames.validate(req.body).error)
         return resp.sendStatus(400);
@@ -90,14 +110,125 @@ app.post('/games' , async (req, resp) =>{
     if(allGamesName.rows.some(game => game.name === name)){
         return resp.sendStatus(409);
     }
-
+    
     await connection.query(`INSERT INTO games (name, image, "stockTotal", "categoryId", "pricePerDay") VALUES ($1, $2, $3, $4, $5)`, [name, image, stockTotal, categoryId, pricePerDay]);
 
     resp.sendStatus(201);
+    }
+    catch(error) {
+        console.log(error);
+        resp.sendStatus(500);
+    }
 });
 
+//GET CUSTOMERS
+app.get('/customers' , async (req, resp) => {
+    const { cpf } = req.query;
+    let result;
 
+    try{
+    if(cpf){
+        console.log('entrei aqui nesse if');
+        result = await connection.query(`SELECT * FROM customers WHERE cpf ILIKE $1`, [`${cpf}%`]);
+    }else {
+        result = await connection.query(`SELECT * FROM customers`);
+    }
+    resp.send(result.rows);
+    }
+
+    catch(error) {
+        console.log(error);
+        resp.sendStatus(500);
+    }
+})
+
+//GET CUSTOMER BY ID
+app.get('/customers/:id' , async (req, resp) => {
+    
+    try{
+    const result = await connection.query(`SELECT * FROM customers WHERE id = $1`, [req.params.id]);
+//Useri o req.params.id pq ele é enviado como params e nao no corpo.
+    if(result.rows.length > 0){
+        resp.send(result.rows[0]);
+    } else {
+        resp.sendStatus(404);
+    }
+    }  
+
+    catch(error) {
+        console.log(error);
+        resp.sendStatus(500);
+    } 
+//Se nao encontrar vai entrar no 404 e se encontrar vai ter um length maior quer zero e me retornar a unica row que é a unica com aquele id.(por isso posso colocar [0]);
+});
+
+//POST CUSTOMERS
+app.post('/customers', async (req, resp) => {
+    const { name, phone, cpf, birthday } = req.body;
+    try{
+    const schemaCustomers = joi.object({
+        name: joi.string().min(2).required(),
+        phone: joi.string().min(10).max(11).required(),
+        cpf: joi.string().pattern(/^[0-9]+$/).length(11).required(),
+        birthday: joi.date().iso().required(),
+        }).unknown();
+
+    if(schemaCustomers.validate(req.body).error){
+        console.log(schemaCustomers.validate(req.body).error)
+        return resp.sendStatus(400);
+    };
+
+    const allCustomersCpf = await connection.query(`SELECT * FROM customers`);
+    
+    if(allCustomersCpf.rows.some(customerCpf => customerCpf.cpf === cpf)){
+        return resp.sendStatus(409);
+    }
+    
+        await connection.query(`INSERT INTO customers (name, phone, cpf, birthday) VALUES ($1, $2, $3, $4)`, [name, phone, cpf, birthday]);
+        resp.sendStatus(201);
+    }
+
+    catch(error) {
+        console.log(error);
+        resp.sendStatus(500);
+    }
+});
+
+//PUT CUSTOMERS
+app.put("/customers/:id", async (req, resp) => {
+    const { name, phone, cpf, birthday } = req.body;
+    const { id } = req.params;
+
+    try{
+        const schemaCustomers = joi.object({
+            name: joi.string().min(2).required(),
+            phone: joi.string().min(10).max(11).required(),
+            cpf: joi.string().pattern(/^[0-9]+$/).length(11).required(),
+            birthday: joi.date().iso().required(),
+            }).unknown();
+    
+        if(schemaCustomers.validate(req.body).error){
+            console.log(schemaCustomers.validate(req.body).error)
+            return resp.sendStatus(400);
+        };
+
+
+        const allCustomersCpf = await connection.query(`SELECT * FROM customers`);
+        
+        if(allCustomersCpf.rows.some(customerCpf => customerCpf.cpf === cpf)){
+            return resp.sendStatus(409);
+        }
+
+        await connection.query(`UPDATE customers SET name = $1, phone = $2, cpf = $3, birthday = $4 WHERE id= $5`, [name, phone, cpf, birthday, id]);
+        resp.sendStatus(200);
+    }
+    
+    catch(error) {
+        console.log(error);
+        resp.sendStatus(500);
+    }
+});
 
 app.listen(4000 , () => {
     console.log("Server ON");
-})
+});
