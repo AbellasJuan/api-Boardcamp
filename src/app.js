@@ -21,11 +21,10 @@ database: 'boardcamp'
 
 //GET CATEGORIES
 app.get("/categories", async (req, resp) => {
+    
     try{
     const result = await connection.query(`SELECT * FROM categories`);
-    //coloquei dentro da const result o 'await' para travar ate ele responder e fiz o connection.query para conectar com o banco de dados o pedido de selecionar todas as categories;
     resp.send(result.rows);
-    //a resposta que me é enviada sao todas as fileiras da minha requisiçao;
     }
 
     catch(error) {
@@ -37,33 +36,27 @@ app.get("/categories", async (req, resp) => {
 //POST CATEGORIES
 app.post('/categories', async (req, resp) => {
     const name = req.body.name;
-    //aqui eu peguei o que tinha dentro do body. Só tinha o 'name';
+
     try {
+
     if(!name){
-        //se !name retornar true quer dizer que nao foi enviado nada e dá erro;
         return resp.sendStatus(400);
-        //me responde status 400;
     }
 
     const allCategoriesName = await connection.query(`SELECT * FROM categories`);
-    //coloquei na variavel as categorias existentes
     if(allCategoriesName.rows.some(category => category.name === name)){
-        //peguei a array das categorias e percorri com SOME pra me retornar true or false se já existir alguma categoria igual;
         return resp.sendStatus(409);
-        //se tiver aquele nome vai me retornar status 409;;
     }
     
     await connection.query(`INSERT INTO categories (name) VALUES ($1)`, [name]);
-    //await pra só continuar quando isso for resolvido.
-    //aqui falei pro meu banco de dados que eu quero inserir em categories no campo NAME (pq id tá automatico) e o valor que eu quero botar ('$1' dizendo que vai entrar algo ali, para evitar o sql injection) e depois passamos realmente o valor do $1, [name];
     resp.sendStatus(201);
-    //envia status 201 se criou e deu bom;
     }
 
     catch(error) {
         console.log(error);
         resp.sendStatus(500);
     }
+
 });
 
 //GET  GAMES
@@ -95,11 +88,11 @@ app.post('/games' , async (req, resp) =>{
     const schemaGames = joi.object({
     name: joi.string().min(1).required(),
     image: joi.string().pattern(/(http(s?):)([/|.|\w|\s|-])*.(?:jpg|gif|png)/).required(),
-    stockTotal: joi.number().min(1).integer(),
+    stockTotal: joi.number().min(1),
     pricePerDay: joi.number().min(1),
     categoryId: joi.number().required(),
     }).unknown();
-    //UNKNOWN() PQ TAVA MANDANDO EU COLOCAR IMAGE. ASSIM ELE NAO PEDE PRA COLOCAR JOI PRA TODAS AS PROPRIEDADES.
+
     try {
     if(schemaGames.validate(req.body).error){
         console.log(schemaGames.validate(req.body).error)
@@ -120,7 +113,7 @@ app.post('/games' , async (req, resp) =>{
         console.log(error);
         resp.sendStatus(500);
     }
-});
+}) ;
 
 //GET CUSTOMERS
 app.get('/customers' , async (req, resp) => {
@@ -148,7 +141,7 @@ app.get('/customers/:id' , async (req, resp) => {
     
     try{
     const result = await connection.query(`SELECT * FROM customers WHERE id = $1`, [req.params.id]);
-//Useri o req.params.id pq ele é enviado como params e nao no corpo.
+    
     if(result.rows.length > 0){
         resp.send(result.rows[0]);
     } else {
@@ -160,7 +153,7 @@ app.get('/customers/:id' , async (req, resp) => {
         console.log(error);
         resp.sendStatus(500);
     } 
-//Se nao encontrar vai entrar no 404 e se encontrar vai ter um length maior quer zero e me retornar a unica row que é a unica com aquele id.(por isso posso colocar [0]);
+
 });
 
 //POST CUSTOMERS
@@ -232,21 +225,82 @@ app.put("/customers/:id", async (req, resp) => {
 
 //GET RENTALS
 app.get('/rentals' , async (req, resp) => {
-   
+    const customerId = req.query.customerId;
+    const gameId = req.query.gameId;
+
     try{
-    const result = await connection.query(`SELECT * FROM rentals`);
-    resp.send(result.rows);
+    let result = await connection.query('SELECT * FROM rentals');
+    const customerInfo = await connection.query(`
+    SELECT
+        customers.id AS id,
+        customers.name AS name
+    FROM customers
+    INNER JOIN rentals
+    ON rentals."customerId" = customers.id
+    `);
+    const gameInfo = await connection.query(`
+    SELECT
+        games.id,
+        games.name,
+        games."categoryId",
+        categories.name AS "categoryName"
+    FROM games
+    INNER JOIN categories
+    ON categories.id = games."categoryId"
+    `);
+
+    result.rows = result.rows.map(rental => ({
+        id: rental.id,
+        customerId: rental.customerId,
+        gameId: rental.gameId,
+        rentDate: new Date(rental.rentDate).toLocaleDateString('en-CA'),
+        daysRented: rental.daysRented,
+        returnDate: rental.returnDate ? new Date(rental.returnDate).toLocaleDateString('en-CA') : null,
+        originalPrice: rental.originalPrice,
+        delayFee: rental.delayFee,
+        customer: customerInfo.rows.find(value => rental.customerId === value.id),
+        game: gameInfo.rows.find(value => rental.gameId === value.id)
+    }))
+
+    if(customerId !== undefined && gameId !== undefined){
+        result.rows = result.rows.filter(value => value.costumer.id === parseInt(customerId) && value.game.id === parseInt(gameId));
+        return resp.send(result.rows);        
     }
 
-    catch(error){
-        console.log(error);
-        resp.sendStatus(500);
+    if(customerId !== undefined && gameId === undefined){
+        result.rows = result.rows.filter(value => value.costumer.id === parseInt(customerId));
+        return resp.send(result.rows);        
     }
+
+    if(gameId !== undefined && customerId === undefined){
+        result.rows = result.rows.filter(value => value.game.id === parseInt(gameId));
+        return resp.send(result.rows);        
+    }
+    
+    resp.send(result.rows);
+}
+
+catch(error) {
+    console.log(error);
+    resp.sendStatus(500);
+}
 });
 
 //POST RENTALS
 app.post('/rentals' , async (req, resp) => {
     const { customerId, gameId, daysRented } = req.body;
+
+    const schemaRentals = joi.object({
+        customerId: joi.string().min(1).required(),
+        gameId: joi.number().min(1).required(),
+        daysRented: joi.number().min(1).required(),
+        }).unknown();
+        
+        
+        if(schemaRentals.validate(req.body).error){
+            console.log(schemaRentals.validate(req.body).error)
+            return resp.sendStatus(400);
+        }
 
     try{
     const gettingGame = await connection.query(`SELECT * FROM games WHERE id=$1`, [gameId]);
