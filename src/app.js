@@ -2,6 +2,7 @@ import express from "express";
 import cors from 'cors';
 import pg from 'pg';
 import joi from 'joi';
+import dayjs from "dayjs";
 
 const app = express();
 
@@ -224,6 +225,103 @@ app.put("/customers/:id", async (req, resp) => {
     }
     
     catch(error) {
+        console.log(error);
+        resp.sendStatus(500);
+    }
+});
+
+//GET RENTALS
+app.get('/rentals' , async (req, resp) => {
+   
+    try{
+    const result = await connection.query(`SELECT * FROM rentals`);
+    resp.send(result.rows);
+    }
+
+    catch(error){
+        console.log(error);
+        resp.sendStatus(500);
+    }
+});
+
+//POST RENTALS
+app.post('/rentals' , async (req, resp) => {
+    const { customerId, gameId, daysRented } = req.body;
+
+    try{
+    const gettingGame = await connection.query(`SELECT * FROM games WHERE id=$1`, [gameId]);
+
+    if(gettingGame.rows.length === 0){
+        return resp.sendStatus(400);
+    }
+
+    const openRentals = await connection.query(`SELECT * FROM rentals WHERE "gameId" = $1 AND "returnDate" IS null`, [gameId]);
+
+    if(openRentals.rows.length >= gettingGame.rows[0].stockTotal){
+        return resp.sendStatus(400);
+    }
+
+    const originalPrice = gettingGame.rows[0].pricePerDay * daysRented;
+
+        await connection.query(
+            `INSERT INTO rentals ("customerId", "gameId", "rentDate", "daysRented", "originalPrice", "returnDate", "delayFee") 
+            VALUES ($1, $2, now(), $3, $4, null, null)`, 
+            [customerId, gameId, daysRented, originalPrice]);
+
+        resp.sendStatus(201);
+    }
+
+    catch(error) {
+        console.log(error);
+        resp.sendStatus(500);
+    }
+});
+
+//POST FINISH RENTALS
+app.post('/rentals/:id/return', async (req, resp) => {
+    const { id } = req.params;
+    
+    
+    const rental = await connection.query(`
+    SELECT rentals."rentDate", games."pricePerDay", games."daysRented" 
+    FROM rentals 
+    JOIN games 
+    ON games.id = rentals."gameId" 
+    WHERE rentals.id=$1`, [id]);
+
+    const { rentDate, pricePerDay, daysRented } = rental.rows[0];
+
+    const todayDate = dayjs();
+    const totalDaysRented = todayDate.diff(rentDate, "day");
+
+    let delayFee = null;
+
+    if(totalDaysRented > daysRented){
+        delayFee = (totalDaysRented - daysRented) * pricePerDay;
+    }
+
+    await connection.query(`
+    UPDATE rentals 
+    SET "returnDate" = now(), "delayFee" = $1
+    WHERE id=$2`, [delayFee, id]);
+    resp.sendStatus(200)
+});
+
+//ERASE RENTALS
+app.delete('/rentals/:id', async (req, resp) => {
+    
+    try{
+    const rental = await connection.query(`SELECT * FROM rentals WHERE id = $1 AND "returnDate" IS not null` [req.params.id]);
+    
+    if(rental.rows.length > 0){
+        return resp.sendStatus(400);
+    }
+
+    await connection.query(`DELETE FROM rentals WHERE id = $1`, [req.params.id]);
+    resp.sendStatus(200)
+    }
+    
+    catch(error){
         console.log(error);
         resp.sendStatus(500);
     }
