@@ -381,7 +381,6 @@ app.delete('/rentals/:id', async (req, resp) => {
     }
 });
 
-
 app.listen(4000 , () => {
     console.log("Server ON");
 });
