@@ -1,23 +1,13 @@
 import express from "express";
 import cors from 'cors';
-import pg from 'pg';
 import joi from 'joi';
 import dayjs from "dayjs";
+import connection from "./database.js";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
-
-const { Pool } = pg;
-
-const connection = new Pool({
-user: 'bootcamp_role',
-password: 'senha_super_hiper_ultra_secreta_do_role_do_bootcamp',
-host: 'localhost',
-port: 5432,
-database: 'boardcamp'
-});
 
 //GET CATEGORIES
 app.get("/categories", async (req, resp) => {
@@ -91,7 +81,7 @@ app.post('/games' , async (req, resp) =>{
     stockTotal: joi.number().min(1),
     pricePerDay: joi.number().min(1),
     categoryId: joi.number().required(),
-    }).unknown();
+    });
 
     try {
     if(schemaGames.validate(req.body).error){
@@ -164,8 +154,8 @@ app.post('/customers', async (req, resp) => {
         name: joi.string().min(2).required(),
         phone: joi.string().min(10).max(11).required(),
         cpf: joi.string().pattern(/^[0-9]+$/).length(11).required(),
-        birthday: joi.date().iso().required(),
-        }).unknown();
+        birthday: joi.date().iso().required()
+        });
 
     if(schemaCustomers.validate(req.body).error){
         console.log(schemaCustomers.validate(req.body).error)
