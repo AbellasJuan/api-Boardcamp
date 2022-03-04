@@ -72,6 +72,7 @@ app.get('/games' , async (req, resp) => {
 
 //POST GAMES
 app.post('/games' , async (req, resp) =>{
+    console.log(req.body)
     const {name, image, stockTotal, categoryId, pricePerDay} = req.body;
 
     const schemaGames = joi.object({
@@ -79,7 +80,7 @@ app.post('/games' , async (req, resp) =>{
     image: joi.string().pattern(/(http(s?):)([/|.|\w|\s|-])*.(?:jpg|gif|png)/).required(),
     stockTotal: joi.number().min(1),
     pricePerDay: joi.number().min(1),
-    categoryId: joi.number().required(),
+    categoryId: joi.number().required()
     });
 
     try {
@@ -111,7 +112,6 @@ app.get('/customers' , async (req, resp) => {
 
     try{
     if(cpf){
-        console.log('entrei aqui nesse if');
         result = await connection.query(`SELECT * FROM customers WHERE cpf ILIKE $1`, [`${cpf}%`]);
     }else {
         result = await connection.query(`SELECT * FROM customers`);
@@ -187,7 +187,7 @@ app.put("/customers/:id", async (req, resp) => {
             phone: joi.string().min(10).max(11).required(),
             cpf: joi.string().pattern(/^[0-9]+$/).length(11).required(),
             birthday: joi.date().iso().required(),
-            }).unknown();
+            });
     
         if(schemaCustomers.validate(req.body).error){
             console.log(schemaCustomers.validate(req.body).error)
@@ -195,11 +195,11 @@ app.put("/customers/:id", async (req, resp) => {
         };
 
 
-        const allCustomersCpf = await connection.query(`SELECT * FROM customers`);
+        // const allCustomersCpf = await connection.query(`SELECT * FROM customers`);
         
-        if(allCustomersCpf.rows.some(customerCpf => customerCpf.cpf === cpf)){
-            return resp.sendStatus(409);
-        }
+        // if(allCustomersCpf.rows.some(customerCpf => customerCpf.cpf === cpf)){
+        //     return resp.sendStatus(409);
+        // }
 
         await connection.query(`UPDATE customers SET name = $1, phone = $2, cpf = $3, birthday = $4 WHERE id= $5`, [name, phone, cpf, birthday, id]);
         resp.sendStatus(200);
@@ -278,10 +278,10 @@ app.post('/rentals' , async (req, resp) => {
     const { customerId, gameId, daysRented } = req.body;
 
     const schemaRentals = joi.object({
-        customerId: joi.string().min(1).required(),
+        customerId: joi.number().min(1).required(),
         gameId: joi.number().min(1).required(),
         daysRented: joi.number().min(1).required(),
-        }).unknown();
+        });
         
         
         if(schemaRentals.validate(req.body).error){
@@ -321,10 +321,9 @@ app.post('/rentals' , async (req, resp) => {
 //POST FINISH RENTALS
 app.post('/rentals/:id/return', async (req, resp) => {
     const { id } = req.params;
-    
-    
+
     const rental = await connection.query(`
-    SELECT rentals."rentDate", games."pricePerDay", games."daysRented" 
+    SELECT rentals."rentDate", games."pricePerDay", rentals."daysRented" 
     FROM rentals 
     JOIN games 
     ON games.id = rentals."gameId" 
@@ -352,7 +351,7 @@ app.post('/rentals/:id/return', async (req, resp) => {
 app.delete('/rentals/:id', async (req, resp) => {
     
     try{
-    const rental = await connection.query(`SELECT * FROM rentals WHERE id = $1 AND "returnDate" IS not null` [req.params.id]);
+    const rental = await connection.query(`SELECT * FROM rentals WHERE id = $1 AND "returnDate" IS not null`, [req.params.id]);
     
     if(rental.rows.length > 0){
         return resp.sendStatus(400);
@@ -361,7 +360,6 @@ app.delete('/rentals/:id', async (req, resp) => {
     await connection.query(`DELETE FROM rentals WHERE id = $1`, [req.params.id]);
     resp.sendStatus(200)
     }
-    
     catch(error){
         console.log(error);
         resp.sendStatus(500);
