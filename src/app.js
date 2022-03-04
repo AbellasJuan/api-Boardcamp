@@ -46,7 +46,6 @@ app.post('/categories', async (req, resp) => {
         console.log(error);
         resp.sendStatus(500);
     }
-
 });
 
 //GET  GAMES
@@ -143,7 +142,6 @@ app.get('/customers/:id' , async (req, resp) => {
         console.log(error);
         resp.sendStatus(500);
     } 
-
 });
 
 //POST CUSTOMERS
@@ -266,7 +264,6 @@ app.get('/rentals' , async (req, resp) => {
         result.rows = result.rows.filter(value => value.game.id === parseInt(gameId));
         return resp.send(result.rows);        
     }
-    
     resp.send(result.rows);
 }
 
