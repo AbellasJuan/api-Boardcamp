@@ -51,16 +51,22 @@ app.post('/categories', async (req, resp) => {
 //GET  GAMES
 app.get('/games' , async (req, resp) => {
     const { name } = req.query;
-
     let result;
 
     try{
     if(name){
-        result = await connection.query(`SELECT * FROM games WHERE name ILIKE $1`, [`${name}%`]);
+        result = await connection.query(`SELECT games.*, categories.name AS "categoryName" FROM games
+        JOIN categories ON games."categoryId"=categories.id
+        WHERE LOWER(games.name) LIKE LOWER($1)
+    `, [`${name}%`]);
+
     } else{
-        result = await connection.query(`SELECT * FROM games`);
+        result = await connection.query(`
+            SELECT games.*, categories.name AS "categoryName" FROM games
+            JOIN categories ON games."categoryId"=categories.id`)
     }
-    
+
+    console.log(result.rows)
     resp.send(result.rows);
     }
 
