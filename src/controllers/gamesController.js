@@ -8,9 +8,9 @@ export async function registerGame(req, res) {
     const allGamesName = await connection.query(`SELECT * FROM games`);
     
     if(allGamesName.rows.some(game => game.name === name)){
-        return resp.sendStatus(409);
+        return res.sendStatus(409);
     }
-    
+     
     await connection.query(`
     INSERT INTO games 
     (name, image, "stockTotal", "categoryId", "pricePerDay") 
