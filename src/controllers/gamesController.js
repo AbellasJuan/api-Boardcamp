@@ -11,7 +11,11 @@ export async function registerGame(req, res) {
         return resp.sendStatus(409);
     }
     
-    await connection.query(`INSERT INTO games (name, image, "stockTotal", "categoryId", "pricePerDay") VALUES ($1, $2, $3, $4, $5)`, [name, image, stockTotal, categoryId, pricePerDay]);
+    await connection.query(`
+    INSERT INTO games 
+    (name, image, "stockTotal", "categoryId", "pricePerDay") 
+    VALUES ($1, $2, $3, $4, $5)`, 
+    [name, image, stockTotal, categoryId, pricePerDay]);
 
     res.sendStatus(201);
     
@@ -27,15 +31,22 @@ export async function getGames(req, res) {
 
     try{
     if(name){
-        result = await connection.query(`SELECT games.*, categories.name AS "categoryName" FROM games
-        JOIN categories ON games."categoryId"=categories.id
-        WHERE LOWER(games.name) LIKE LOWER($1)
+        result = await connection.query(`
+        SELECT games.*, categories.name AS "categoryName" 
+        FROM games
+        JOIN categories 
+        ON games."categoryId"=categories.id
+        WHERE LOWER(games.name) 
+        LIKE LOWER($1)
     `, [`${name}%`]);
 
     } else{
         result = await connection.query(`
-            SELECT games.*, categories.name AS "categoryName" FROM games
-            JOIN categories ON games."categoryId"=categories.id`)
+        SELECT games.*, categories.name 
+        AS "categoryName" 
+        FROM games
+        JOIN categories 
+        ON games."categoryId"=categories.id`)
     }
 
     res.send(result.rows);

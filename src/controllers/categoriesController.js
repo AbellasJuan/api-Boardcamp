@@ -14,7 +14,11 @@ export async function registerCategory(req, res) {
         return res.sendStatus(409);
     }
     
-    await connection.query(`INSERT INTO categories (name) VALUES ($1)`, [name]);
+    await connection.query(`
+    INSERT INTO 
+    categories (name) 
+    VALUES ($1)`, 
+    [name]);
     res.sendStatus(201);
     }
 

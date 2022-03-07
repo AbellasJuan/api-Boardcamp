@@ -10,7 +10,13 @@ export async function registerRental(req, res) {
         return res.sendStatus(400);
     }
 
-    const openRentals = await connection.query(`SELECT * FROM rentals WHERE "gameId" = $1 AND "returnDate" IS null`, [gameId]);
+    const openRentals = await connection.query(`
+        SELECT * 
+        FROM rentals 
+        WHERE "gameId" = $1 
+        AND "returnDate" 
+        IS null`, 
+        [gameId]);
 
     if(openRentals.rows.length >= gettingGame.rows[0].stockTotal){
         return res.sendStatus(400);
@@ -19,8 +25,10 @@ export async function registerRental(req, res) {
     const originalPrice = gettingGame.rows[0].pricePerDay * daysRented;
 
         await connection.query(
-            `INSERT INTO rentals ("customerId", "gameId", "rentDate", "daysRented", "originalPrice", "returnDate", "delayFee") 
-            VALUES ($1, $2, now(), $3, $4, null, null)`, 
+            `INSERT INTO rentals 
+                ("customerId", "gameId", "rentDate", "daysRented", "originalPrice", "returnDate", "delayFee") 
+            VALUES 
+                ($1, $2, now(), $3, $4, null, null)`, 
             [customerId, gameId, daysRented, originalPrice]);
 
         res.sendStatus(201);
@@ -129,13 +137,23 @@ export async function returnRental(req, res) {
 
 export async function deleteRental(req, res) {
     try{
-        const rental = await connection.query(`SELECT * FROM rentals WHERE id = $1 AND "returnDate" IS not null`, [req.params.id]);
+        const rental = await connection.query(`
+        SELECT * 
+        FROM rentals 
+        WHERE id = $1 AND "returnDate" 
+        IS not null`, 
+        [req.params.id]);
         
         if(rental.rows.length > 0){
             return res.sendStatus(400);
         }
     
-        await connection.query(`DELETE FROM rentals WHERE id = $1`, [req.params.id]);
+        await connection.query(`
+        DELETE FROM 
+        rentals 
+        WHERE id = $1`, 
+        [req.params.id]);
+        
         res.sendStatus(200)
         
     } catch(error){

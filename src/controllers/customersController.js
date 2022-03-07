@@ -9,7 +9,7 @@ export async function registerCustomer(req, res) {
         
         if(allCustomersCpf.rows.some(customerCpf => customerCpf.cpf === cpf)){
             return res.sendStatus(409);
-    }
+        }
     
         await connection.query(`
         INSERT INTO customers 
@@ -31,7 +31,12 @@ export async function getCustomers(req, res) {
 
     try{
         if(cpf){
-            result = await connection.query(`SELECT * FROM customers WHERE cpf ILIKE $1`, [`${cpf}%`]);
+            result = await connection.query(`
+            SELECT * 
+            FROM customers 
+            WHERE cpf 
+            ILIKE $1`, 
+            [`${cpf}%`]);
         }else {
             result = await connection.query(`SELECT * FROM customers`);
         }
@@ -53,7 +58,11 @@ export async function getCustomers(req, res) {
 export async function getCustomer(req, res) {
     
     try{
-        const result = await connection.query(`SELECT * FROM customers WHERE id = $1`, [req.params.id]);
+        const result = await connection.query(`
+        SELECT * 
+        FROM customers 
+        WHERE id = $1`, 
+        [req.params.id]);
         
         if(result.rows.length > 0){
 
@@ -82,7 +91,12 @@ export async function updateCustomer(req, res) {
             return res.sendStatus(409);
         }
 
-        await connection.query(`UPDATE customers SET name = $1, phone = $2, cpf = $3, birthday = $4 WHERE id= $5`, [name, phone, cpf, birthday, id]);
+        await connection.query(`
+        UPDATE customers 
+        SET 
+        name = $1, phone = $2, cpf = $3, birthday = $4 
+        WHERE id= $5`, 
+        [name, phone, cpf, birthday, id]);
         res.sendStatus(200);
     } catch(error) {
         console.log(error);
