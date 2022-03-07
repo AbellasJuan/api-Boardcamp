@@ -15,7 +15,7 @@ export async function registerGame(req, res) {
     INSERT INTO games 
     (name, image, "stockTotal", "categoryId", "pricePerDay") 
     VALUES ($1, $2, $3, $4, $5)`, 
-    [name, image, stockTotal, categoryId, pricePerDay]);
+    [name, image, Number(stockTotal), categoryId, Number(pricePerDay)]);
 
     res.sendStatus(201);
     
