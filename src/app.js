@@ -66,7 +66,6 @@ app.get('/games' , async (req, resp) => {
             JOIN categories ON games."categoryId"=categories.id`)
     }
 
-    console.log(result.rows)
     resp.send(result.rows);
     }
 
@@ -78,7 +77,6 @@ app.get('/games' , async (req, resp) => {
 
 //POST GAMES
 app.post('/games' , async (req, resp) =>{
-    console.log(req.body)
     const {name, image, stockTotal, categoryId, pricePerDay} = req.body;
 
     const schemaGames = joi.object({
@@ -200,12 +198,10 @@ app.put("/customers/:id", async (req, resp) => {
             return resp.sendStatus(400);
         };
 
-
-        // const allCustomersCpf = await connection.query(`SELECT * FROM customers`);
-        
-        // if(allCustomersCpf.rows.some(customerCpf => customerCpf.cpf === cpf)){
-        //     return resp.sendStatus(409);
-        // }
+        const allCustomersCpf = await connection.query(`SELECT * FROM customers`);
+        if(allCustomersCpf.rows.some(customerCpf => customerCpf.cpf === cpf)){
+            return resp.sendStatus(409);
+        }
 
         await connection.query(`UPDATE customers SET name = $1, phone = $2, cpf = $3, birthday = $4 WHERE id= $5`, [name, phone, cpf, birthday, id]);
         resp.sendStatus(200);
