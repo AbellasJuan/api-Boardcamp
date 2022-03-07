@@ -190,7 +190,7 @@ app.put("/customers/:id", async (req, resp) => {
             name: joi.string().min(2).required(),
             phone: joi.string().min(10).max(11).required(),
             cpf: joi.string().pattern(/^[0-9]+$/).length(11).required(),
-            birthday: joi.date().iso().required(),
+            birthday: joi.date().iso().required()
             });
     
         if(schemaCustomers.validate(req.body).error){
@@ -322,31 +322,52 @@ app.post('/rentals' , async (req, resp) => {
 
 //POST FINISH RENTALS
 app.post('/rentals/:id/return', async (req, resp) => {
-    const { id } = req.params;
+    const rentalId = req.params.id;
 
-    const rental = await connection.query(`
-    SELECT rentals."rentDate", games."pricePerDay", rentals."daysRented" 
-    FROM rentals 
-    JOIN games 
-    ON games.id = rentals."gameId" 
-    WHERE rentals.id=$1`, [id]);
+    const idRentalSchema = joi.object({
+        rentalId: joi.number().integer().min(1).required()
+        });
 
-    const { rentDate, pricePerDay, daysRented } = rental.rows[0];
+    const { error } = idRentalSchema.validate({ rentalId });
 
-    const todayDate = dayjs();
-    const totalDaysRented = todayDate.diff(rentDate, "day");
-
-    let delayFee = null;
-
-    if(totalDaysRented > daysRented){
-        delayFee = (totalDaysRented - daysRented) * pricePerDay;
+    if (error) {
+        resp.status(400).send(error.details[0].message);
+        return;
     }
 
-    await connection.query(`
-    UPDATE rentals 
-    SET "returnDate" = now(), "delayFee" = $1
-    WHERE id=$2`, [delayFee, id]);
-    resp.sendStatus(200)
+    try {
+        const rentalIdCheck = await connection.query('SELECT * FROM rentals WHERE id = $1', [rentalId]);
+        if (rentalIdCheck.rowCount === 0) {
+            resp.sendStatus(404);
+            return;
+        }
+
+        const game = await connection.query('SELECT * FROM games WHERE id = $1', [rentalIdCheck.rows[0].gameId]);
+
+        if (rentalIdCheck.rows[0].returnDate !== null) {
+            resp.sendStatus(400);
+            return;
+        }
+
+        const devolutionInDays = new Date(rentalIdCheck.rows[0].rentDate).getTime() / (1000 * 60 * 60 * 24);
+        const devolutionDate = new Date((devolutionInDays + rentalIdCheck.rows[0].daysRented) * (1000 * 60 * 60 * 24));
+        const returnDate = new Date()
+
+        const daysDiff = Math.floor(((returnDate.getTime() - devolutionDate.getTime()) / (1000 * 60 * 60 * 24)));
+        const delayFee = daysDiff * game.rows[0].pricePerDay;
+
+        await connection.query(`
+        UPDATE rentals
+        SET
+            "returnDate" = $1,
+            "delayFee" = $2
+        WHERE id = $3
+        `, [returnDate.toLocaleDateString('en-CA'), delayFee <= 0 ? 0 : delayFee, rentalId]);
+        resp.sendStatus(200);
+    } catch (error) {
+        console.log(error);
+        resp.sendStatus(500);
+    }
 });
 
 //ERASE RENTALS
